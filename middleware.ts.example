@@ -1,0 +1,63 @@
+/**
+ * Example of how to update middleware.ts to enable API testing
+ * 
+ * This would go in your main middleware.ts file
+ */
+
+import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import { NextResponse } from "next/server";
+
+// Define routes that require authentication
+const isProtectedRoute = createRouteMatcher(["/", "/api/categories(.*)"]); 
+
+// Define routes that are API routes
+const isApiRoute = createRouteMatcher(["/api/(.*)"]); 
+
+export default clerkMiddleware(async (auth, req) => {
+  // Check if this is a request from Jest/Supertest or Playwright tests
+  const isTestRequest = req.headers.get('x-playwright-test') === 'true';
+  
+  // Allow access to protected routes in test mode
+  if (isTestRequest) {
+    // For API routes, set a test user ID to simulate authenticated requests
+    if (isApiRoute(req)) {
+      // Create a new request with a simulated auth context
+      const headers = new Headers(req.headers);
+      headers.set('x-test-user-id', 'test-user-123');
+      
+      // Create a new request with the modified headers
+      const testRequest = new Request(req.url, {
+        method: req.method,
+        headers,
+        body: req.body
+      });
+      
+      // Return the modified request
+      return NextResponse.next({
+        request: testRequest
+      });
+    }
+    
+    // For UI routes, just bypass auth
+    return NextResponse.next();
+  }
+
+  const { userId, redirectToSignIn } = await auth();
+
+  // If the user isn't signed in and the route is private, redirect to sign-in
+  if (!userId && isProtectedRoute(req)) {
+    return redirectToSignIn({ returnBackUrl: "/" });
+  }
+
+  // If the user is logged in and the route is protected, let them view.
+  if (userId && isProtectedRoute(req)) {
+    return NextResponse.next();
+  }
+  
+  // Allow access to public routes
+  return NextResponse.next();
+});
+
+export const config = {
+  matcher: ["/((?!.*\\..*|_next).*)", "/", "/(api|trpc)(.*)"]
+}; 

@@ -1,0 +1,97 @@
+/**
+ * Example of how to update the API route to handle test requests
+ * 
+ * This shows modifications needed in the categories API file
+ */
+
+import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@clerk/nextjs/server';
+import { supabase } from '@/lib/supabase';
+import { categoriesToTree, treeToCategories, validateCategoryTreeIds, createValidCategoryId } from '@/lib/supabase';
+import { createHash } from 'crypto';
+
+// Helper function to get the user ID either from Clerk or from test headers
+async function getUserId(req: NextRequest) {
+  // Check if this is a test request
+  const isTestRequest = req.headers.get('x-playwright-test') === 'true';
+  
+  if (isTestRequest) {
+    // For tests, use a fixed test user ID from headers or default
+    return req.headers.get('x-test-user-id') || 'test-user-123';
+  }
+  
+  // For real requests, use Clerk auth
+  const { userId } = await auth();
+  return userId;
+}
+
+// Helper function to generate a deterministic UUID v5 from a string
+function generateUUIDv5(input: string): string {
+  // Implementation as before...
+  return 'generated-uuid'; // Simplified for example
+}
+
+// Generate a consistent UUID for the user
+function getUserUUID(userId: string): string {
+  // Create a UUID that will be the same for the same Clerk user ID
+  return generateUUIDv5(userId);
+}
+
+/**
+ * GET /api/categories
+ * Returns the hierarchical tree structure of categories for the authenticated user
+ */
+export async function GET(req: NextRequest) {
+  try {
+    const userId = await getUserId(req);
+    
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    console.log('Fetching categories for user:', userId);
+    const userUUID = getUserUUID(userId);
+    console.log('Using UUID:', userUUID);
+    
+    // Rest of the function...
+    // Use userUUID to fetch categories
+    
+    // Return categories
+    return NextResponse.json([/* categories */]);
+  } catch (error) {
+    console.error('Error in GET categories:', error);
+    return NextResponse.json({ 
+      error: 'Internal server error', 
+      message: error instanceof Error ? error.message : String(error)
+    }, { status: 500 });
+  }
+}
+
+/**
+ * POST /api/categories
+ * Saves the entire category structure for the authenticated user.
+ */
+export async function POST(req: NextRequest) {
+  try {
+    const userId = await getUserId(req);
+    
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    
+    console.log('Saving categories for user:', userId);
+    const userUUID = getUserUUID(userId);
+    
+    // Rest of the function...
+    
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Error in POST categories:', error);
+    return NextResponse.json({ 
+      error: 'Internal server error', 
+      message: error instanceof Error ? error.message : String(error)
+    }, { status: 500 });
+  }
+}
+
+// Similarly update PUT, PATCH, and DELETE methods... 
